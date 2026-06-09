@@ -656,6 +656,50 @@ breakpoint_ret_t gdb_remove_breakpoint(uint8_t type, uint16_t at, uint8_t sz)
     return BREAKPOINT_ERROR_OK;
 }
 
+/* Watchpoints map onto the standard RSP Z2/Z3/Z4 packets. The caller passes the
+   RSP type directly (2 = write, 3 = read, 4 = access). */
+breakpoint_ret_t gdb_add_watchpoint(uint8_t type, uint16_t at, uint8_t sz)
+{
+    if (connection_socket == 0) {
+        return BREAKPOINT_ERROR_NOT_CONNECTED;
+    }
+
+    if (debugger_active == 0) {
+        return BREAKPOINT_ERROR_RUNNING;
+    }
+
+    char req[64];
+    sprintf(req, "Z%zx,%zx,%zx", (size_t)type, (size_t)at, (size_t)sz);
+    const char* resp = send_request(req);
+    if (strcmp(resp, "OK") != 0)
+    {
+        return BREAKPOINT_ERROR_FAILURE;
+    }
+
+    return BREAKPOINT_ERROR_OK;
+}
+
+breakpoint_ret_t gdb_remove_watchpoint(uint8_t type, uint16_t at, uint8_t sz)
+{
+    if (connection_socket == 0) {
+        return BREAKPOINT_ERROR_NOT_CONNECTED;
+    }
+
+    if (debugger_active == 0) {
+        return BREAKPOINT_ERROR_RUNNING;
+    }
+
+    char req[64];
+    sprintf(req, "z%zx,%zx,%zx", (size_t)type, (size_t)at, (size_t)sz);
+    const char* resp = send_request(req);
+    if (strcmp(resp, "OK") != 0)
+    {
+        return BREAKPOINT_ERROR_FAILURE;
+    }
+
+    return BREAKPOINT_ERROR_OK;
+}
+
 breakpoint_ret_t gdb_disable_breakpoint(uint8_t type, uint16_t at, uint8_t sz)
 {
     return BREAKPOINT_ERROR_FAILURE;
@@ -1512,6 +1556,8 @@ static backend_t gdb_backend = {
     .restore = &debugger_restore,
     .add_breakpoint = &gdb_add_breakpoint,
     .remove_breakpoint = &gdb_remove_breakpoint,
+    .add_watchpoint = &gdb_add_watchpoint,
+    .remove_watchpoint = &gdb_remove_watchpoint,
     .disable_breakpoint = &gdb_disable_breakpoint,
     .enable_breakpoint = &gdb_enable_breakpoint,
     .breakpoints_check = &breakpoints_check,

@@ -18,7 +18,13 @@ int next_breakpoint_number = 1;
 breakpoint* add_watchpoint(breakpoint_type operation, int value) {
     breakpoint* w = calloc(1, sizeof(breakpoint));
 
-    // TODO: tie up watchpoints to a backend (e.g. gdb)
+    /* Push the watchpoint to a backend that supports it (e.g. the gdb remote
+       target) via the standard RSP Z2/Z3 packets: 2 = write, 3 = read. The
+       local list below is still kept for `watch` listing. */
+    if (bk.add_watchpoint) {
+        uint8_t rsp_type = (operation == BREAK_WRITE) ? 2 : 3;
+        bk.add_watchpoint(rsp_type, (uint16_t)value, 1);
+    }
 
     w->number = next_breakpoint_number++;
     w->type = operation;
@@ -61,6 +67,11 @@ breakpoint* add_breakpoint(breakpoint_type type, enum bk_breakpoint_type bk_type
 
 void delete_watchpoint(breakpoint* w) {
     LL_DELETE(watchpoints, w);
+
+    if (bk.remove_watchpoint) {
+        uint8_t rsp_type = (w->type == BREAK_WRITE) ? 2 : 3;
+        bk.remove_watchpoint(rsp_type, (uint16_t)w->value, 1);
+    }
 
     if (w->text) {
         free(w->text);
