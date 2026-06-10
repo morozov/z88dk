@@ -130,6 +130,7 @@ static int cmd_registers(int argc, char **argv);
 static int cmd_break(int argc, char **argv);
 static int cmd_watch(int argc, char **argv);
 static int cmd_examine(int argc, char **argv);
+static int cmd_bank(int argc, char **argv);
 static int cmd_set(int argc, char **argv);
 static int cmd_out(int argc, char **argv);
 static int cmd_define(int argc, char **argv);
@@ -174,6 +175,7 @@ static command commands[] = {
     { "delete",    cmd_del_break,   "<breakpoint id>",      "Delete breakpoint(s)" },
     { "watch",     cmd_watch,       "<address/label>",      "Handle watchpoints" },
     { "x",         cmd_examine,     "[/<length>] <address>","Examine memory" },
+    { "bank",      cmd_bank,        "<bank> [<offset> [<len>]]","Read a raw RAM bank, bypassing paging (FuseX)" },
     { "set",       cmd_set,         "<hl/h/l/...> <value>", "Set registers" },
     { "out",       cmd_out,         "<address> <value>",    "Send to IO bus"},
     { "trace",     cmd_trace,       "<on/off>",             "Disassemble every instruction"},
@@ -1607,6 +1609,48 @@ static void delete_breakpoint_by_number_and_log(int number){
     }
 
     delete_breakpoint(b);
+}
+
+static int cmd_bank(int argc, char **argv)
+{
+    if (argc < 2 || bk.read_bank == NULL) {
+        bk.console("Usage: bank <bank> [<offset> [<len>]] (requires a FuseX target)\n");
+        return 0;
+    }
+
+    int bank = (int)strtol(argv[1], NULL, 0);
+    int offset = argc > 2 ? (int)strtol(argv[2], NULL, 0) : 0;
+    int len = argc > 3 ? (int)strtol(argv[3], NULL, 0) : 256;
+    uint8_t buf[0x1000];
+    int shown = 0;
+
+    while (len > 0) {
+        int want = len > (int)sizeof(buf) ? (int)sizeof(buf) : len;
+        int n = bk.read_bank(bank, offset + shown, buf, want);
+        if (n < 0) {
+            bk.console("bank: read failed (unsupported target or out-of-range bank?)\n");
+            return 0;
+        }
+        if (n == 0)
+            break;
+
+        int i;
+        for (i = 0; i < n; i += 16) {
+            char line[160];
+            int o = 0, j;
+            o += snprintf(line + o, sizeof(line) - o, "%04x:", offset + shown + i);
+            for (j = 0; j < 16 && i + j < n; j++)
+                o += snprintf(line + o, sizeof(line) - o, " %02x", buf[i + j]);
+            bk.console("%s\n", line);
+        }
+
+        shown += n;
+        len -= n;
+        if (n < want)   /* short read = end of bank */
+            break;
+    }
+
+    return 0;
 }
 
 static int cmd_watch(int argc, char **argv)

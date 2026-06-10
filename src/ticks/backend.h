@@ -37,6 +37,9 @@ typedef enum
 } breakpoint_ret_t;
 
 typedef breakpoint_ret_t (*breakpoint_cb)(uint8_t type, uint16_t at, uint8_t sz);
+/* Read up to len bytes of raw RAM bank <bank> at <offset> into out, bypassing
+   the target's current paging. Returns bytes read, or -1 if unsupported. */
+typedef int (*read_bank_cb)(int bank, int offset, uint8_t* out, int len);
 typedef uint8_t (*connect_cb)(const char* address);
 typedef void (*send_remote_command_cb)(const char* cmd);
 
@@ -69,6 +72,7 @@ typedef struct {
     breakpoint_cb remove_watchpoint;
     breakpoint_cb disable_breakpoint;
     breakpoint_cb enable_breakpoint;
+    read_bank_cb read_bank;
     breakpoints_check_cb breakpoints_check;
     uint8_t_cb is_verbose;
     log_cb console;

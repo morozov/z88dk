@@ -62,6 +62,7 @@ struct scheduled_action_t
 
 static struct scheduled_action_t* first_scheduled_action = NULL;
 static char request_response[PACKET_BUF_SIZE];
+static int request_response_len = 0;
 static uint8_t write_request = 0;
 static pthread_mutex_t req_response_mutex;
 static pthread_cond_t req_response_cond;
@@ -165,6 +166,41 @@ static const char* send_request(const char* request)
     pthread_mutex_unlock(&req_response_mutex);
 
     return request_response;
+}
+
+/* Read raw RAM bank bytes from a FuseX target via its custom qXfer object.
+   request_response_len is used rather than strlen because bank data can contain
+   NULs. Returns bytes read, or -1 if unsupported / not connected. */
+int gdb_read_bank(int bank, int offset, uint8_t* out, int len)
+{
+    if (connection_socket == 0)
+        return -1;
+    if (len > 0x1000)
+        len = 0x1000;   /* one qXfer chunk; the stub caps similarly */
+
+    char req[64];
+    snprintf(req, sizeof(req), "qXfer:fuse-ram:read:%d:%x,%x", bank, offset, len);
+    const char* resp = send_request(req);
+    if (resp == NULL || request_response_len < 1)
+        return -1;
+    /* qXfer reply is an 'm'/'l' prefix then the bytes; anything else is E.. */
+    if (resp[0] != 'm' && resp[0] != 'l')
+        return -1;
+
+    /* Un-escape the binary payload ('}' followed by byte ^ 0x20). The packet
+       layer escapes outgoing binary but does not decode incoming. */
+    int in_n = request_response_len - 1;
+    const char* p = resp + 1;
+    int out_n = 0, i;
+    for (i = 0; i < in_n && out_n < len; i++) {
+        if (p[i] == 0x7d && i + 1 < in_n) {
+            i++;
+            out[out_n++] = (uint8_t)(p[i] ^ 0x20);
+        } else {
+            out[out_n++] = (uint8_t)p[i];
+        }
+    }
+    return out_n;
 }
 
 int hex(char ch)
@@ -1026,6 +1062,7 @@ static uint8_t process_packet()
         }
         memcpy(request_response, recv_data, payload_size);
         request_response[payload_size] = '\0';
+        request_response_len = (int)payload_size;
         pthread_cond_signal(&req_response_cond);
         pthread_mutex_unlock(&req_response_mutex);
         return 1;
@@ -1558,6 +1595,7 @@ static backend_t gdb_backend = {
     .remove_breakpoint = &gdb_remove_breakpoint,
     .add_watchpoint = &gdb_add_watchpoint,
     .remove_watchpoint = &gdb_remove_watchpoint,
+    .read_bank = &gdb_read_bank,
     .disable_breakpoint = &gdb_disable_breakpoint,
     .enable_breakpoint = &gdb_enable_breakpoint,
     .breakpoints_check = &breakpoints_check,
