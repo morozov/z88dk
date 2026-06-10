@@ -96,6 +96,11 @@ const char* register_mapping_names[] = {
      */
     "clockl",
     "clockh",
+
+    "ir",
+    "iff1",
+    "iff2",
+    "im",
 };
 
 static enum register_mapping_t register_mappings[32] = {0};
@@ -405,6 +410,25 @@ static struct debugger_regs_t* fetch_registers()
                     unwrap_reg(value, &registers.h_, &registers.l_);
                     break;
                 }
+                case REGISTER_MAPPING_IR: {
+                    unwrap_reg(value, &registers.i, &registers.r);
+                    break;
+                }
+                case REGISTER_MAPPING_IFF1: {
+                    uint8_t hi;
+                    unwrap_reg(value, &hi, &registers.iff1);
+                    break;
+                }
+                case REGISTER_MAPPING_IFF2: {
+                    uint8_t hi;
+                    unwrap_reg(value, &hi, &registers.iff2);
+                    break;
+                }
+                case REGISTER_MAPPING_IM: {
+                    uint8_t hi;
+                    unwrap_reg(value, &hi, &registers.im);
+                    break;
+                }
                 case REGISTER_MAPPING_UNKNOWN:
                 default: {
                     // we don't support such register, so we chose to ignore it
@@ -572,6 +596,22 @@ void set_regs(struct debugger_regs_t* regs)
             }
             case REGISTER_MAPPING_HL_: {
                 value = wrap_reg(regs->h_, regs->l_);
+                break;
+            }
+            case REGISTER_MAPPING_IR: {
+                value = wrap_reg(regs->i, regs->r);
+                break;
+            }
+            case REGISTER_MAPPING_IFF1: {
+                value = wrap_reg(0, regs->iff1);
+                break;
+            }
+            case REGISTER_MAPPING_IFF2: {
+                value = wrap_reg(0, regs->iff2);
+                break;
+            }
+            case REGISTER_MAPPING_IM: {
+                value = wrap_reg(0, regs->im);
                 break;
             }
             case REGISTER_MAPPING_UNKNOWN:

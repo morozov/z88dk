@@ -157,6 +157,13 @@ struct debugger_regs_t {
     unsigned char xh, xl, yh, yl;
 
     /*
+     * Interrupt and refresh state, reported by emulators that expose it (split
+     * out of the combined "ir" register, plus the interrupt flip-flops and
+     * mode). Backends that do not report it leave these zero.
+     */
+    unsigned char i, r, iff1, iff2, im;
+
+    /*
      * Some emulators would report this 16bit register pair, which could be used
      * to track ticks for profiling purposes
      */
