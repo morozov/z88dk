@@ -1613,7 +1613,14 @@ static void* debugger_mi2_console_loop(void* arg) {
     while (1) {
         execute_on_main_thread(execute_prompt, NULL, NULL);
 
-        while (fgets(debugger_line, 1024, stdin) == 0) ;
+        while (fgets(debugger_line, 1024, stdin) == 0) {
+            if (feof(stdin) || ferror(stdin)) {
+                /* Controlling client closed the pipe (EOF): exit cleanly rather
+                   than spinning forever on a dead stream. A bare NULL without
+                   EOF (e.g. an EINTR-interrupted read) still retries. */
+                exit(0);
+            }
+        }
 
 #ifdef DEBUGGER_MI2_CONSOLE_LOG
         mi2_debug_log_input(debugger_line);

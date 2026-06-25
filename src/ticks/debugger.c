@@ -852,6 +852,18 @@ void debugger()
 
 		debugger_print_prompt(prompt, sizeof(prompt), buf, sizeof(buf));
     }
+
+    if ( line == NULL ) {
+        /* linenoise() returned NULL: EOF on stdin (Ctrl-D, or a closed pipe when
+           driven non-interactively). Quit cleanly. Otherwise debugger() returns,
+           the emulator resumes and re-traps, and we re-enter here to reprint the
+           prompt and hit EOF again -- an unbounded prompt flood under a
+           per-frame breakpoint. We cannot prompt at EOF, so detach and exit
+           unconditionally (equivalent to 'quit' answered "yes"). */
+        delete_all_breakpoints();
+        bk.detach();
+        exit(0);
+    }
 }
 
 
@@ -1774,10 +1786,16 @@ static uint8_t confirm(const char* message) {
     while (1) {
         bk.console("%s (y/n)", message);
         fflush(stdout);
-        char c;
+        int c;
         do {
-            scanf("%c", &c);
-        } while (!isalpha(c));
+            c = getchar();
+        } while (c != EOF && !isalpha(c));
+        if (c == EOF) {
+            /* EOF / closed stdin: no answer will ever arrive. Decline rather
+               than spin forever on a dead stream (the old scanf("%c") looped
+               because it left c unchanged on EOF). */
+            return 0;
+        }
         if (c == 'y' || c == 'Y') {
             return 1;
         }
