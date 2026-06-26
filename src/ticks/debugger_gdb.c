@@ -1745,6 +1745,8 @@ int main(int argc, char **argv) {
             verbose = 1;
         } else if (strcmp(argv[i], "-q") == 0) {
             // ignore
+        } else if (strcmp(argv[i], "--batch") == 0) {
+            debugger_batch_mode = 1;
         } else if (strcmp(argv[i], "--version") == 0) {
             bk.debug("GNU gdb (GDB) 11.0\n");
             bk.debug("The line above is fake, we're pretending to be a gdb here.\n");

@@ -235,6 +235,7 @@ static int last_stacktrace_at = 0;
 UT_string* pending_executable_binary = NULL;
 
 static int interact_with_tty = 0;
+int debugger_batch_mode = 0;
 
 void ctrl_c_handler(int signum) {
     bk.ctrl_c();
@@ -1783,6 +1784,12 @@ static int cmd_finish(int argc, char **argv)
 }
 
 static uint8_t confirm(const char* message) {
+    if (debugger_batch_mode || !interact_with_tty) {
+        /* Non-interactive (--batch, or stdin/stdout is not a tty): proceed with
+           the requested action rather than block on a prompt that nobody can
+           answer. A driven session would otherwise hang here. */
+        return 1;
+    }
     while (1) {
         bk.console("%s (y/n)", message);
         fflush(stdout);

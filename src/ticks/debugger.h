@@ -12,6 +12,8 @@
 extern int debugger_active;
 extern int debugger_break_requested;
 extern size_t current_frame;
+/* Non-interactive batch mode (--batch): confirm() proceeds without prompting. */
+extern int debugger_batch_mode;
 
 extern void debugger_init();
 extern void debugger();
